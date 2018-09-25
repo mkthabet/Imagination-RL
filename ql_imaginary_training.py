@@ -13,15 +13,15 @@ from mdn import MDN
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 4
+LATENT_DIM = 16
 
 ENV_LEARN_START = 0   #number of episodes before training env model starts`
 MEMORY_CAPACITY = 10000
 BATCH_SIZE = 64
 GAMMA = 0.99
-MAX_EPSILON = 1 #0.8
-MIN_EPSILON = 0.001 #0.0001
-LAMBDA = 0.001      # speed of decay+
+MAX_EPSILON = 0.6 #0.8
+MIN_EPSILON = 0.0001 #0.0001
+LAMBDA = 0.01      # speed of decay+
 MAX_EPISODES = 1000
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
@@ -41,9 +41,9 @@ class EnvironmentModel:
     def __init__(self):
         self.s_bar = None
         self.env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM + 4, out_dim=LATENT_DIM,
-                             model_path="models/env_model_401.h5")
-        self.r_model = load_model("models/r_model_401.h5")
-        self.decoder = load_model("models/decoder_105.h5")
+                             model_path="models/env_model_605.h5")
+        self.r_model = load_model("models/r_model_605.h5")
+        self.decoder = load_model("models/decoder_202.h5")
         self.statecnt = LATENT_DIM
 
     def init_model(self, s_bar):
@@ -73,7 +73,7 @@ class Brain:
         self.controller, self.encoder, self.controller_target = self._createModel()
 
     def _createModel(self):
-        encoder = load_model('models/encoder_105.h5')
+        encoder = load_model('models/encoder_202.h5')
 
         controller_input = Input(shape=(LATENT_DIM,), name='controller_input')
         controller_out = Dense(units=512, activation='relu')(controller_input)

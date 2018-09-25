@@ -14,7 +14,7 @@ from mdn import MDN
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 16
+LATENT_DIM = 4
 NUM_COMPONENTS = 48
 
 def int2onehot(a, n):
@@ -35,11 +35,11 @@ class PointingEnv:
         self.pu_hand, self.bl_hand, self.or_hand = getImages()
 
         self.env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM+4, out_dim=LATENT_DIM,
-                             model_path="models/env_model_501.h5")
-        self.encoder = load_model("models/encoder_202.h5")
-        self.dqn_model = load_model('models/controller_501.h5')
-        self.decoder = load_model("models/decoder_202.h5")
-        self.r_model = load_model("models/r_model_501.h5")
+                             model_path="models/env_model_605.h5")
+        self.encoder = load_model("models/encoder_105.h5")
+        self.dqn_model = load_model('models/controller_605.h5')
+        self.decoder = load_model("models/decoder_105.h5")
+        self.r_model = load_model("models/r_model_605.h5")
 
         self.s_bar = None
 

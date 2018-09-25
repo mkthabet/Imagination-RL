@@ -14,7 +14,7 @@ from pointing_env import PointingEnv
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 4
+LATENT_DIM = 16
 sortedCnt = 0
 
 class Brain:
@@ -26,7 +26,7 @@ class Brain:
 
     def _createModel(self):
         controller = load_model('models/controller_1001.h5')
-        encoder = load_model('models/encoder_105.h5')
+        encoder = load_model('models/encoder_202.h5')
 
         return controller, encoder
 

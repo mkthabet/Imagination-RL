@@ -22,7 +22,7 @@ GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
 MIN_EPSILON = 0.0001  # 0.0001
 LAMBDA = 0.01  # speed of decay+
-MAX_EPISODES = 150
+MAX_EPISODES = 100
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
@@ -164,7 +164,7 @@ class Agent:
         #states = np.array([o[0] for o in batch])
         #states_ = np.array([(no_state if o[3] is None else o[3]) for o in batch])
 
-        epsilon_noise = 0.1
+        epsilon_noise = 0.12
 
         states = np.array([(o[0] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
         states_ = np.array([(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
@@ -196,9 +196,14 @@ class Agent:
 
         no_state = np.zeros(LATENT_DIM)
 
+        epsilon_noise = 0.05
+
         states = np.array([o[0] for o in batch])
         states_ = np.array([(no_state if o[3] is None else o[3]) for o in batch])
-
+        #states = np.array([(o[0] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
+        #states_ = np.array(
+         #   [(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o
+          #   in batch])
 
         p = agent.brain.predict(states)
         p_ = agent.brain.predict(states_, target=USE_TARGET)
@@ -206,9 +211,11 @@ class Agent:
         x = np.zeros((len(batch), LATENT_DIM))
         y = np.zeros((len(batch), self.actionCnt))
 
+
+
         for i in range(batchLen):
             o = batch[i]
-            s = o[0];
+            s = o[0]
             a = o[1];
             r = o[2];
             s_ = o[3];
@@ -225,7 +232,7 @@ class Agent:
             y[i] = t
 
         self.brain.train_controller(x, y)
-        for i in range(8):
+        for i in range(32):
             self.train_env()
 
 
@@ -261,6 +268,7 @@ class Environment:
                 sbar_ = None
 
             agent.observe((sbar, a, r, sbar_, done))
+
             agent.replay()
 
             s = s_
@@ -288,9 +296,9 @@ try:
         episodes = episodes + 1
 finally:
     ss = 0
-    agent.brain.controller.save("models/controller_602.h5")
-    agent.brain.env_model.model.save("models/env_model_602.h5")
-    agent.brain.r_model.save("models/r_model_602.h5")
+    agent.brain.controller.save("models/controller_605.h5")
+    agent.brain.env_model.model.save("models/env_model_605.h5")
+    agent.brain.r_model.save("models/r_model_605.h5")
     plt.plot(r_history)
     plt.show()
 # env.run(agent, False)
