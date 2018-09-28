@@ -14,7 +14,7 @@ from pointing_env import PointingEnv
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 16
+LATENT_DIM = 4
 sortedCnt = 0
 
 class Brain:
@@ -26,7 +26,7 @@ class Brain:
 
     def _createModel(self):
         controller = load_model('models/controller_1001.h5')
-        encoder = load_model('models/encoder_202.h5')
+        encoder = load_model('models/encoder_105.h5')
 
         return controller, encoder
 
@@ -38,7 +38,7 @@ class Brain:
 
     def encode(self, s):
         encoded = np.asarray(self.encoder.predict(s))
-        return encoded[0, 0, :]
+        return encoded[ 0, :]
 
 BATCH_SIZE = 64
 
@@ -84,7 +84,7 @@ class Environment:
                     done_cnt += 1
                 break
 
-        print("Total reward:", R)
+        #print("Total reward:", R)
 
 #-------------------- MAIN ----------------------------
 num_items = 3
@@ -96,11 +96,20 @@ actionCnt = env.env.getActSpaceSize()
 agent = Agent(stateCnt, actionCnt)
 
 episodes = 0
+runs = 0
 MAX_EPISODES = 100
-while episodes < MAX_EPISODES:
-    env.run(agent)
-    episodes += 1
+MAX_RUNS = 50
+total_done_cnt = 0
+while runs < MAX_RUNS:
+    while episodes < MAX_EPISODES:
+        env.run(agent)
+        episodes += 1
     #agent.brain.model.save("point_3.h5")
+    runs += 1
+    global done_cnt
+    total_done_cnt += done_cnt
+    done_cnt = 0
+    episodes = 0
 #env.run(agent, False)
-print('Done count: ', done_cnt)
+print('Average done count: ', total_done_cnt/MAX_RUNS)
 print('failed count: ', failed_cnt)
