@@ -17,7 +17,7 @@ LATENT_DIM = 8
 
 ENV_LEARN_START = 50  # number of episodes before training env model starts`
 RE_MEMORY_CAPACITY = 10000
-IM_MEMORY_CAPACITY = 100
+IM_MEMORY_CAPACITY = 400
 BATCH_SIZE = 64
 GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
@@ -27,18 +27,18 @@ MAX_EPISODES = 200
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
-R_ENV = 1 #number of env training batches for each episode
+R_ENV = 32 #number of env training batches for each episode
 epsilon_std = 1.0
 BETA = 0.0
 episodes = 0
 SIGMA_NOISE = 0.15
 actionCnt = 0
 
-I_D = 2     #imaginary rollout depth (length of rollout)
-I_B = 10    #imaginary rollout breadth (number of rollouts)
+I_D = 4     #imaginary rollout depth (length of rollout)
+I_B = 5    #imaginary rollout breadth (number of rollouts)
 I_START = 60    # episode at which imaginary training starts
 MEM_BATCHSIZE = 64      #total batch size for replay
-IM_PERCENT = 0.0        #percentage of total batch size that is imaginary transitions
+IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
 IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
 RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
 
@@ -287,7 +287,7 @@ class Environment:
         global r_history
         imaginary = False   #flag to start using imaginary rollouts for training
         if episodes > I_START:
-            print('Imaginary training started...')
+            #print('Imaginary training started...')
             imaginary = True    #start using imaginary rollouts
         # TODO: decide if imaginary or not
         while True:
@@ -301,6 +301,8 @@ class Environment:
                     for i_d in range(I_D):
                         zhat_, rhat, donehat = agent.brain.env_model.step(a)
                         rhat, donehat = round(rhat), round(donehat)
+                        if donehat == 1:
+                            zhat_ = None
                         agent.observe((zhat, a, rhat, zhat_, donehat), imaginary=True)
                         if donehat == 1:
                             break
