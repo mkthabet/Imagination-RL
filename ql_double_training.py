@@ -27,7 +27,7 @@ MAX_EPISODES = 200
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
-R_ENV = 32 #number of env training batches for each episode
+R_ENV = 1 #number of env training batches for each episode
 epsilon_std = 1.0
 BETA = 0.0
 episodes = 0
@@ -38,7 +38,7 @@ I_D = 2     #imaginary rollout depth (length of rollout)
 I_B = 10    #imaginary rollout breadth (number of rollouts)
 I_START = 60    # episode at which imaginary training starts
 MEM_BATCHSIZE = 64      #total batch size for replay
-IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
+IM_PERCENT = 0.0        #percentage of total batch size that is imaginary transitions
 IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
 RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
 
@@ -149,9 +149,9 @@ class Brain:
 
 # -------------------- MEMORY --------------------------
 class Memory:  # stored as ( s, a, r, s_ , d)
-    samples = []
 
     def __init__(self, capacity):
+        self.samples = []
         self.capacity = capacity
 
     def add(self, sample):
@@ -194,8 +194,9 @@ class Agent:
             self.brain.updateTargetModel()
 
         # slowly decrease Epsilon based on our eperience
-        self.steps += 1
-        self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self.steps)
+        if not imaginary:
+            self.steps += 1
+            self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self.steps)
 
     def train_env(self):
         batch = self.memory.sample(BATCH_SIZE)
@@ -233,7 +234,6 @@ class Agent:
     def replay(self, imaginary=False):
         batch = self.memory.sample(RE_BATCHSIZE)
         if imaginary:
-            #i_batch = self.imaginary_memory.sample(IM_BATCHSIZE)
             batch = batch + self.imaginary_memory.sample(IM_BATCHSIZE)
 
         batchLen = len(batch)
@@ -300,9 +300,9 @@ class Environment:
                     zhat = z
                     for i_d in range(I_D):
                         zhat_, rhat, donehat = agent.brain.env_model.step(a)
-                        r, done = round(rhat), round(donehat)
+                        rhat, donehat = round(rhat), round(donehat)
                         agent.observe((zhat, a, rhat, zhat_, donehat), imaginary=True)
-                        if done == 1:
+                        if donehat == 1:
                             break
                         zhat = zhat_
             s_, r, done = self.env.step(a)
@@ -345,4 +345,6 @@ finally:
     agent.brain.env_model.env_model.model.save("models/env_model_2001.h5")
     agent.brain.env_model.r_model.save("models/r_model_2001.h5")
     agent.brain.controller.save('models/controller_2001.h5')
+    plt.plot(r_history)
+    plt.show()
 # env.run(agent, False)
