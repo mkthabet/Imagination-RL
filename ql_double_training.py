@@ -9,21 +9,21 @@ from keras.models import Model, load_model, model_from_json
 from pointing_env import PointingEnv
 import matplotlib.pyplot as plt
 from mdn import MDN
+from model_tester import test_model
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
 LATENT_DIM = 8
 
-ENV_LEARN_START = 50  # number of episodes before training env model starts`
 RE_MEMORY_CAPACITY = 10000
-IM_MEMORY_CAPACITY = 400
+IM_MEMORY_CAPACITY = 100
 BATCH_SIZE = 64
 GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
 MIN_EPSILON = 0.0001  # 0.0001
-LAMBDA = 0.01  # speed of decay+
-MAX_EPISODES = 200
+LAMBDA = 0.1  # speed of decay+
+MAX_EPISODES = 100
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
@@ -34,10 +34,11 @@ episodes = 0
 SIGMA_NOISE = 0.15
 actionCnt = 0
 
+ENV_LEARN_START = 40  # number of episodes before training env model starts`
 I_D = 4     #imaginary rollout depth (length of rollout)
 I_B = 5    #imaginary rollout breadth (number of rollouts)
-I_START = 60    # episode at which imaginary training starts
-MEM_BATCHSIZE = 64      #total batch size for replay
+I_START = 50    # episode at which imaginary training starts
+MEM_BATCHSIZE = 128      #total batch size for replay
 IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
 IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
 RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
@@ -112,7 +113,7 @@ class Brain:
         controller = Model(inputs=controller_input, outputs=controller_out)
         controller_opt = adam(lr=0.00025)
         controller.compile(loss='mse', optimizer='adam')
-        controller.summary()
+        #controller.summary()
 
         # just copy the architecture
         json_string = controller.to_json()
@@ -121,7 +122,7 @@ class Brain:
         return controller, encoder, controller_target
 
     def train(self, x, y, epoch=1, verbose=0):
-        self.controller.fit(x, y, batch_size=BATCH_SIZE, nb_epoch=epoch, verbose=verbose)
+        self.controller.fit(x, y, batch_size=MEM_BATCHSIZE, nb_epoch=epoch, verbose=verbose)
 
     def predict(self, s, target=False):
         if target:
@@ -334,19 +335,28 @@ stateCnt = env.env.getStateSpaceSize()
 global actionCnt
 actionCnt = env.env.getActSpaceSize()
 
-agent = Agent(stateCnt, actionCnt)
 
-episodes = 0
-
-try:
-    while episodes < MAX_EPISODES:
-        env.run(agent)
-        episodes = episodes + 1
-finally:
-    ss = 0  # blah blah
-    agent.brain.env_model.env_model.model.save("models/env_model_2001.h5")
-    agent.brain.env_model.r_model.save("models/r_model_2001.h5")
-    agent.brain.controller.save('models/controller_2001.h5')
-    plt.plot(r_history)
-    plt.show()
+max_runs = 10
+runs = 0
+done_counts = []
+while runs < max_runs:
+    episodes = 0
+    agent = Agent(stateCnt, actionCnt)
+    print("training run ", runs+1)
+    try:
+        while episodes < MAX_EPISODES:
+            env.run(agent)
+            episodes = episodes + 1
+    finally:
+        ss = 0  # blah blah
+        agent.brain.env_model.env_model.model.save("models/env_model_2001.h5")
+        agent.brain.env_model.r_model.save("models/r_model_2001.h5")
+        agent.brain.controller.save('models/controller_2001.h5')
+        print("testing run ", runs+1)
+        done_counts.append(test_model())
+        runs += 1
+        #plt.plot(r_history)
+        #plt.show()
+done_counts = np.asarray(done_counts)
+print("average = ", done_counts.mean(), "max = ", done_counts.max(), "min = ", done_counts.min(), "sigma = ", np.std(done_counts))
 # env.run(agent, False)

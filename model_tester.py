@@ -2,10 +2,12 @@
 This script loads a pre-trained controller and uses it to generate rollouts from an environment.
 It is used to test the controller.
 '''
+from __future__ import division
 
 import random, numpy, math, gym
 
 #-------------------- BRAIN ---------------------------
+
 from keras.models import Sequential, load_model
 from keras.layers import *
 from keras.optimizers import *
@@ -14,7 +16,7 @@ from pointing_env import PointingEnv
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 4
+LATENT_DIM = 8
 sortedCnt = 0
 
 class Brain:
@@ -25,8 +27,8 @@ class Brain:
         self.controller, self.encoder = self._createModel()
 
     def _createModel(self):
-        controller = load_model('models/controller_1001.h5')
-        encoder = load_model('models/encoder_105.h5')
+        controller = load_model('models/controller_2001.h5')
+        encoder = load_model('models/encoder_208.h5')
 
         return controller, encoder
 
@@ -59,6 +61,7 @@ class Agent:
 #-------------------- ENVIRONMENT ---------------------
 done_cnt = 0
 failed_cnt = 0
+R_total = 0
 class Environment:
     def __init__(self, num_items):
         self.env = PointingEnv(num_items)
@@ -68,6 +71,7 @@ class Environment:
         R = 0
         global failed_cnt
         global done_cnt
+        global R_total
         while True:
             sbar = agent.brain.encode(np.reshape(s, (1, IMAGE_WIDTH, IMAGE_HEIGHT, CHANNELS)))
             a = agent.act(sbar)
@@ -82,34 +86,39 @@ class Environment:
                     failed_cnt += 1
                 else:
                     done_cnt += 1
+                R_total += R
                 break
 
         #print("Total reward:", R)
 
 #-------------------- MAIN ----------------------------
-num_items = 3
-env = Environment(num_items)
 
-stateCnt  = env.env.getStateSpaceSize()
-actionCnt = env.env.getActSpaceSize()
+def test_model():
+    num_items = 3
+    env = Environment(num_items)
 
-agent = Agent(stateCnt, actionCnt)
+    stateCnt = env.env.getStateSpaceSize()
+    actionCnt = env.env.getActSpaceSize()
 
-episodes = 0
-runs = 0
-MAX_EPISODES = 100
-MAX_RUNS = 50
-total_done_cnt = 0
-while runs < MAX_RUNS:
-    while episodes < MAX_EPISODES:
-        env.run(agent)
-        episodes += 1
-    #agent.brain.model.save("point_3.h5")
-    runs += 1
-    global done_cnt
-    total_done_cnt += done_cnt
-    done_cnt = 0
+    agent = Agent(stateCnt, actionCnt)
+
     episodes = 0
-#env.run(agent, False)
-print('Average done count: ', total_done_cnt/MAX_RUNS)
-print('failed count: ', failed_cnt)
+    runs = 0
+    MAX_EPISODES = 100
+    MAX_RUNS = 50
+    total_done_cnt = 0
+    while runs < MAX_RUNS:
+        while episodes < MAX_EPISODES:
+            env.run(agent)
+            episodes += 1
+        # agent.brain.model.save("point_3.h5")
+        runs += 1
+        global done_cnt
+        total_done_cnt += done_cnt
+        done_cnt = 0
+        episodes = 0
+    avg_done_cnt = total_done_cnt / MAX_RUNS
+    return avg_done_cnt
+    # env.run(agent, False)
+    #print('Average done count: ', total_done_cnt / MAX_RUNS)
+    #print('Average R: ', R_total / (MAX_RUNS * MAX_EPISODES))
