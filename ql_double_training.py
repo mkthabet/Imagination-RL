@@ -17,8 +17,8 @@ CHANNELS = 3
 LATENT_DIM = 8
 
 RE_MEMORY_CAPACITY = 10000
-IM_MEMORY_CAPACITY = 100
-BATCH_SIZE = 64
+IM_MEMORY_CAPACITY = 200
+ENV_BATCH_SIZE = 64
 GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
 MIN_EPSILON = 0.0001  # 0.0001
@@ -28,6 +28,7 @@ USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
 R_ENV = 32 #number of env training batches for each episode
+R_C = 4    #number of updates per step for controller
 epsilon_std = 1.0
 BETA = 0.0
 episodes = 0
@@ -36,7 +37,7 @@ actionCnt = 0
 
 ENV_LEARN_START = 40  # number of episodes before training env model starts`
 I_D = 4     #imaginary rollout depth (length of rollout)
-I_B = 5    #imaginary rollout breadth (number of rollouts)
+I_B = 10    #imaginary rollout breadth (number of rollouts)
 I_START = 50    # episode at which imaginary training starts
 MEM_BATCHSIZE = 128      #total batch size for replay
 IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
@@ -88,10 +89,10 @@ class EnvironmentModel:
         return self.z, r, done
 
     def train_env(self, x, y, epoch=1, verbose=0):
-        self.env_model.train_model(x, y, batch_size=BATCH_SIZE, epoch=epoch, verbose=verbose)
+        self.env_model.train_model(x, y, batch_size=ENV_BATCH_SIZE, epoch=epoch, verbose=verbose)
 
     def train_r(self, x, y, epoch=1, verbose=0):
-        self.r_model.fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
+        self.r_model.fit(x, y, batch_size=ENV_BATCH_SIZE, epochs=epoch, verbose=verbose)
 
 
 class Brain:
@@ -200,7 +201,7 @@ class Agent:
             self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self.steps)
 
     def train_env(self):
-        batch = self.memory.sample(BATCH_SIZE)
+        batch = self.memory.sample(ENV_BATCH_SIZE)
         batchLen = len(batch)
 
         no_state = np.zeros(LATENT_DIM)
@@ -269,11 +270,6 @@ class Agent:
 
         self.brain.train(x, y)
 
-        if episodes >= ENV_LEARN_START:
-            for i in range(R_ENV):
-                self.train_env()
-
-
 # -------------------- ENVIRONMENT ---------------------
 
 r_history = np.zeros(MAX_EPISODES)
@@ -315,7 +311,12 @@ class Environment:
                 z_ = None
 
             agent.observe((z, a, r, z_, done), imaginary=False)
-            agent.replay(imaginary=imaginary)
+            if (episodes > I_START) and (episodes >= ENV_LEARN_START):
+                for i in range(R_ENV):
+                    agent.train_env()
+
+            for i in range(R_C):
+                agent.replay(imaginary=imaginary)
 
             s = s_
             R += r
