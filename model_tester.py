@@ -27,8 +27,8 @@ class Brain:
         self.controller, self.encoder = self._createModel()
 
     def _createModel(self):
-        controller = load_model('models/controller_2001.h5')
-        encoder = load_model('models/encoder_208.h5')
+        controller = load_model('models/controller_3001.h5')
+        encoder = load_model('models/encoder_2001.h5')
 
         return controller, encoder
 
@@ -63,8 +63,8 @@ done_cnt = 0
 failed_cnt = 0
 R_total = 0
 class Environment:
-    def __init__(self, num_items):
-        self.env = PointingEnv(num_items)
+    def __init__(self, num_items, use_all=False, val=False):
+        self.env = PointingEnv(num_items=num_items, use_all=use_all, val=val)
 
     def run(self, agent, inspect = False):
         s = self.env.reset()
@@ -93,9 +93,9 @@ class Environment:
 
 #-------------------- MAIN ----------------------------
 
-def test_model():
+def test_model(use_all=False, val=True):
     num_items = 3
-    env = Environment(num_items)
+    env = Environment(num_items=num_items, use_all=use_all, val=val)
 
     stateCnt = env.env.getStateSpaceSize()
     actionCnt = env.env.getActSpaceSize()
@@ -104,8 +104,8 @@ def test_model():
 
     episodes = 0
     runs = 0
-    MAX_EPISODES = 100
-    MAX_RUNS = 50
+    MAX_EPISODES = 1000
+    MAX_RUNS = 1
     total_done_cnt = 0
     while runs < MAX_RUNS:
         while episodes < MAX_EPISODES:
@@ -117,8 +117,10 @@ def test_model():
         total_done_cnt += done_cnt
         done_cnt = 0
         episodes = 0
-    avg_done_cnt = total_done_cnt / MAX_RUNS
+    avg_done_cnt = total_done_cnt*100 / (MAX_RUNS*MAX_EPISODES)
     return avg_done_cnt
     # env.run(agent, False)
-    #print('Average done count: ', total_done_cnt / MAX_RUNS)
+    #print('Average done count: ', avg_done_cnt)
     #print('Average R: ', R_total / (MAX_RUNS * MAX_EPISODES))
+
+#test_model()

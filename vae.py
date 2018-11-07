@@ -18,10 +18,10 @@ from keras.datasets import mnist
 from load_process_images import getImages
 
 batch_size = 200
-latent_dim = 16
+latent_dim = 8
 epochs = 200
 epsilon_std = 1.0
-BETA = 2
+BETA = 32
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
@@ -80,7 +80,7 @@ opt = RMSprop(lr=0.00025)
 vae.compile(optimizer='adam', loss=vae_loss)
 vae.summary()
 
-x_train = y_train = x_test = y_test = getImages(return_single=True)
+x_train = y_train = x_test = y_test = getImages(return_single=True, use_all=False, val=False)
 
 
 try:
@@ -91,9 +91,9 @@ try:
             validation_data=(x_test, x_test))
 finally:
     sss = 0
-    encoder.save('models/encoder_206.h5')
-    decoder.save('models/decoder_206.h5')
-    vae.save('models/vae_206.h5')
+    encoder.save('models/encoder_2001.h5')
+    decoder.save('models/decoder_2001.h5')
+    vae.save('models/vae_2001.h5')
 
 n = 15
 digit_size = 64

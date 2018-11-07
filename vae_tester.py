@@ -12,19 +12,19 @@ from sklearn.manifold import TSNE
 from keras.models import load_model
 from load_process_images import getImages
 
-latent_dim = 16
+latent_dim = 8
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
 
-decoder = load_model('models/decoder_206.h5')
-encoder = load_model('models/encoder_206.h5')
+decoder = load_model('models/decoder_2001.h5')
+encoder = load_model('models/encoder_2001.h5')
 
 imgs_list = []
 for i in getImages():
     imgs_list.append(i)
 
-imgs = getImages(True)
+imgs = getImages(return_single=True, use_all=False, val=True)
 
 im_size = 64
 

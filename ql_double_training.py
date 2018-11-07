@@ -17,7 +17,7 @@ CHANNELS = 3
 LATENT_DIM = 8
 
 RE_MEMORY_CAPACITY = 10000
-IM_MEMORY_CAPACITY = 300
+IM_MEMORY_CAPACITY = 400
 ENV_BATCH_SIZE = 64
 GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
@@ -36,13 +36,15 @@ SIGMA_NOISE = 0.15
 actionCnt = 0
 
 ENV_LEARN_START = 40  # number of episodes before training env model starts`
-I_D = 5     #imaginary rollout depth (length of rollout)
-I_B = 20    #imaginary rollout breadth (number of rollouts)
+I_D = 7     #imaginary rollout depth (length of rollout)
+I_B = 30    #imaginary rollout breadth (number of rollouts)
 I_START = 50    # episode at which imaginary training starts
-MEM_BATCHSIZE = 256      #total batch size for replay
-IM_PERCENT = 0.3        #percentage of total batch size that is imaginary transitions
+MEM_BATCHSIZE = 64      #total batch size for replay
+IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
 IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
 RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
+
+USE_IMAGINARY = False
 
 
 def int2onehot(a, n):
@@ -56,7 +58,7 @@ class EnvironmentModel:
         self.z = None
         self.env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM + actionCnt, out_dim=LATENT_DIM)
         self.r_model = self._createModel()
-        self.decoder = load_model("models/decoder_208.h5")
+        self.decoder = load_model("models/decoder_2001.h5")
         self.statecnt = LATENT_DIM
 
     def _createModel(selfself):
@@ -103,7 +105,7 @@ class Brain:
         self.controller, self.encoder, self.controller_target = self._createModel()
 
     def _createModel(self):
-        encoder = load_model('models/encoder_208.h5')
+        encoder = load_model('models/encoder_2001.h5')
 
         controller_input = Input(shape=(LATENT_DIM,), name='controller_input')
         controller_out = Dense(units=512, activation='relu')(controller_input)
@@ -275,15 +277,15 @@ class Agent:
 r_history = np.zeros(MAX_EPISODES)
 
 class Environment:
-    def __init__(self, num_items):
-        self.env = PointingEnv(num_items)
+    def __init__(self, num_items, use_all=False, val=False):
+        self.env = PointingEnv(num_items=num_items, use_all=use_all, val=val)
 
     def run(self, agent):
         s = self.env.reset()
         R = 0
         global r_history
         imaginary = False   #flag to start using imaginary rollouts for training
-        if episodes > I_START:
+        if episodes > I_START and USE_IMAGINARY==True:
             #print('Imaginary training started...')
             imaginary = True    #start using imaginary rollouts
         # TODO: decide if imaginary or not
@@ -311,7 +313,7 @@ class Environment:
                 z_ = None
 
             agent.observe((z, a, r, z_, done), imaginary=False)
-            if (episodes > I_START) and (episodes >= ENV_LEARN_START):
+            if (episodes > I_START) and (episodes >= ENV_LEARN_START) and (USE_IMAGINARY==True):
                 for i in range(R_ENV):
                     agent.train_env()
 
@@ -330,14 +332,14 @@ class Environment:
 
 # -------------------- MAIN ----------------------------
 num_items = 3;
-env = Environment(num_items)
+env = Environment(num_items=num_items, use_all=False, val=False)
 
 stateCnt = env.env.getStateSpaceSize()
 global actionCnt
 actionCnt = env.env.getActSpaceSize()
 
 
-max_runs = 10
+max_runs = 5
 runs = 0
 done_counts = []
 try:
@@ -349,11 +351,11 @@ try:
             env.run(agent)
             episodes = episodes + 1
         #ss = 0  # blah blah
-        agent.brain.env_model.env_model.model.save("models/env_model_2001.h5")
-        agent.brain.env_model.r_model.save("models/r_model_2001.h5")
-        agent.brain.controller.save('models/controller_2001.h5')
+        agent.brain.env_model.env_model.model.save("models/env_model_3001.h5")
+        agent.brain.env_model.r_model.save("models/r_model_3001.h5")
+        agent.brain.controller.save('models/controller_3001.h5')
         print("testing run ", runs+1)
-        done_counts.append(test_model())
+        done_counts.append(test_model(use_all=False, val=False))
         runs += 1
         #plt.plot(r_history)
         #plt.show()

@@ -13,11 +13,11 @@ IMAGE_HEIGHT = 64
 IMAGE_STACK = 2
 
 class PointingEnv:
-    def __init__(self, num_items=3):
+    def __init__(self, num_items=3, use_all=True, val=False):
         self.state = None
         self.num_items = num_items
         self.purple, self.blue, self.orange, self.pu_bl, self.pu_or, self.bl_pu, self.bl_or, self.or_pu, self.or_bl,\
-            self.pu_hand, self.bl_hand, self.or_hand = getImages()
+            self.pu_hand, self.bl_hand, self.or_hand = getImages(return_single=False ,use_all=use_all, val=val)
 
 
     def reset(self):

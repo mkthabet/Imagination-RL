@@ -28,12 +28,16 @@ def processImage(img, gamma=0.5):
     return image
 
 
-def getImages(return_single=False, VAL=False):
+def getImages(return_single=False, use_all=True, val=False):
     purple, blue, orange, pu_bl, pu_or, bl_pu, bl_or, or_pu, or_bl, pu_hand, bl_hand, or_hand \
         = [], [], [], [], [], [], [], [], [], [], [], []
-    path = '../../data/icub_pointing_1/'
-    if VAL:
-        path = path + 'validation/'
+    if use_all:
+        path = '../../data/icub_pointing_1/'
+    else:
+        if val:
+            path = '../../data/icub_pointing_1/split/val/'
+        else:
+            path = '../../data/icub_pointing_1/split/train/'
     for filename in os.listdir(path + 'purple'):
         img = cv2.imread(os.path.join(path + 'purple', filename))
         if img is not None:
