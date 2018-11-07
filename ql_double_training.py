@@ -39,12 +39,13 @@ ENV_LEARN_START = 40  # number of episodes before training env model starts`
 I_D = 7     #imaginary rollout depth (length of rollout)
 I_B = 30    #imaginary rollout breadth (number of rollouts)
 I_START = 50    # episode at which imaginary training starts
-MEM_BATCHSIZE = 64      #total batch size for replay
-IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
-IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
-RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
+RE_BATCHSIZE = 64
+IM_PERCENT = 1.5        #percentage of total batch size that is imaginary transitions
+IM_BATCHSIZE = int(round(RE_BATCHSIZE*IM_PERCENT))
+MEM_BATCHSIZE = RE_BATCHSIZE+IM_BATCHSIZE      #total batch size for replay
+print("Imaginary data proportion: ", IM_BATCHSIZE/(MEM_BATCHSIZE +0.0))
 
-USE_IMAGINARY = False
+USE_IMAGINARY = True
 
 
 def int2onehot(a, n):
@@ -355,7 +356,7 @@ try:
         agent.brain.env_model.r_model.save("models/r_model_3001.h5")
         agent.brain.controller.save('models/controller_3001.h5')
         print("testing run ", runs+1)
-        done_counts.append(test_model(use_all=False, val=False))
+        done_counts.append(test_model(use_all=False, val=True))
         runs += 1
         #plt.plot(r_history)
         #plt.show()
