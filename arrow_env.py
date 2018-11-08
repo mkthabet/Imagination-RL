@@ -75,9 +75,9 @@ class ArrowEnv:
 
         # pointing has a random chance to change
         if self.stoch_gest and (random.random() <= self.stoch_gest_prob) and (done != 1):
-            cur_gest_aslist = []
-            cur_gest_aslist.append(self.gest_state)
-            self.gest_state = random.choice(list(set(range(self.num_items)) - set(cur_gest_aslist)))
+            gest_aslist = []
+            gest_aslist.append(self.gest_state)
+            self.gest_state = random.choice(list(set(range(self.num_items)) - set(gest_aslist)))
             # set difference makes sure the new gesture is different
 
         return self._generateState(), reward, done
@@ -87,10 +87,8 @@ class ArrowEnv:
         state = list(self.arrow_state)
         return state.append(self.gest_state)
 
-
-
     def printState(self):
-        print ("arrow states:", self.arrow_state, "gesture: ", self.gest_state)
+        print ("State: " + self._getStateString())
 
     def getStateSpaceSize(self):
         return ( IMAGE_WIDTH, IMAGE_HEIGHT, 3)
@@ -101,6 +99,19 @@ class ArrowEnv:
     def _isSolved(self):
         return self.arrow_state[self.gest_state] == 0
 
+    def _getStateString(self):
+        state_str = ''
+        for i in range(len(self.arrow_state)):
+            if self.arrow_state[i] == 0:
+                state_str += 'U'
+            elif self.arrow_state[i] == 1:
+                state_str += 'L'
+            elif self.arrow_state[i] == 2:
+                state_str += 'D'
+            elif self.arrow_state[i] == 3:
+                state_str += 'R'
+        state_str += str(self.gest_state)
+        return state_str
 
 testEnv = ArrowEnv(stochastic_gestures=True)
 s = testEnv.reset()
