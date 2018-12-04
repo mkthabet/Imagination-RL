@@ -1,7 +1,7 @@
 import random, math, gym
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Conv2D, Input, Dense, Flatten, Dropout, Lambda, Concatenate, BatchNormalization
+from keras.layers import LeakyReLU, Input, Dense, Flatten, Dropout, Lambda, Concatenate, BatchNormalization
 from keras.optimizers import *
 from keras.models import Model, model_from_json, load_model
 from keras import backend as K
@@ -14,8 +14,8 @@ IN_DIM = 1
 OUT_DIM = 1
 NUM_COMPONENTS = 24
 BATCH_SIZE = 2500
-BETA = 0.5
-EPSILON = 1e-8
+BETA = 0.1
+EPSILON = 1e-15
 
 
 def get_mixture_coef(output, numComponents=24, outputDim=1):
@@ -43,15 +43,15 @@ def tf_normal(y, mu, sigma):
 
 
 def get_lossfunc(out_pi, out_sigma, out_mu, y):
-    #shape(out_mu) = shape(out_sigma] = [num_componnents, batch, out_dim]
-    #shape(out_pi) = [batch, num_components]
+    # shape(out_mu) = shape(out_sigma] = [num_componnents, batch, out_dim]
+    # shape(out_pi) = [batch, num_components]
     result = tf_normal(y, out_mu, out_sigma)
     result = result * out_pi
     result = K.sum(result, axis=1, keepdims=True)
     result = -K.log(result + EPSILON)
-    #kl_loss = - 0.5 * K.sum(1 + K.log(out_sigma*out_sigma) - K.square(out_mu) - out_sigma*out_sigma, axis=-1)
-    #kl_loss = K.sum(kl_loss, axis=0)
-    #return K.mean(result+BETA*kl_loss)
+    # kl_loss = - 0.5 * K.sum(1 + K.log(out_sigma*out_sigma) - K.square(out_mu) - out_sigma*out_sigma, axis=-1)
+    # kl_loss = K.sum(kl_loss, axis=0)
+    # return K.mean(result+BETA*kl_loss)
     return K.mean(result)
 
 
@@ -59,14 +59,16 @@ def mdn_loss(numComponents=24, outputDim=1):
     def loss(y, output):
         out_pi, out_sigma, out_mu = get_mixture_coef(output, numComponents, outputDim)
         return get_lossfunc(out_pi, out_sigma, out_mu, y)
+
     return loss
 
 
 class MDN:
-    def __init__(self, in_dim=IN_DIM, out_dim=OUT_DIM, num_components=NUM_COMPONENTS, model_path=None):
+    def __init__(self, in_dim=IN_DIM, out_dim=OUT_DIM, num_components=NUM_COMPONENTS, model_path=None, lr=0.001):
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.num_components = num_components
+        self.lr = lr
         if model_path is None:
             self.model = self._createModel()
         else:
@@ -75,23 +77,32 @@ class MDN:
 
     def _createModel(self):
         model_input = Input(shape=(self.in_dim,), name='mdn_in')
-        #model_out = BatchNormalization()(model_input)
-        #model_out = Dense(units=256, activation='relu', name='mdn_dense1')(model_out)
+        # model_out = BatchNormalization()(model_input)
+        # model_out = Dense(units=256, activation='relu', name='mdn_dense1')(model_out)
         model_out = Dense(units=256, activation='relu', name='mdn_dense1')(model_input)
+        # model_out = BatchNormalization()(model_out)
+        # model_out = LeakyReLU()(model_out)
         model_out = Dense(units=256, activation='relu', name='mdn_dense2')(model_out)
+        # model_out = BatchNormalization()(model_out)
+        # model_out = LeakyReLU()(model_out)
         model_out = Dense(units=256, activation='relu', name='mdn_dense3')(model_out)
+        # model_out = BatchNormalization()(model_out)
+        # model_out = LeakyReLU()(model_out)
+        # model_out = Dense(units=512, activation='relu', name='mdn_dense4')(model_out)
+        # model_out = BatchNormalization()(model_out)
+        # model_out = Dense(units=1024, activation='relu', name='mdn_dense5')(model_out)
         out_pi = Dense(units=self.num_components, activation='softmax', name='out_pi')(model_out)
         out_mu = Dense(units=self.out_dim * self.num_components, name='out_mu')(model_out)
         out_sigma = Dense(units=self.out_dim * self.num_components, name='out_sigma')(model_out)
         out_concat = Concatenate()([out_mu, out_sigma, out_pi])
         model = Model(inputs=model_input, outputs=out_concat)
-        opt = Adam(lr=0.001)
+        opt = Adam(lr=self.lr)
         model.compile(loss=mdn_loss(numComponents=self.num_components, outputDim=self.out_dim), optimizer=opt)
-        # model_train.summary()
+        #model.summary()
         return model
 
-    def train_model(self, x, y, batch_size=BATCH_SIZE, epoch=5000, verbose=1):
-        self.model.fit(x, y, batch_size=batch_size, epochs=epoch, verbose=verbose)
+    def train_model(self, x, y, batch_size=BATCH_SIZE, epoch=5000, verbose=1, ):
+        self.model.fit(x, y, batch_size=batch_size, epochs=epoch, verbose=verbose, )
 
     def get_dist_params(self, x):
         model_out = np.asarray(self.model.predict(x))
@@ -103,8 +114,9 @@ class MDN:
         out_sigma = np.exp(out_sigma)
         return out_mu, out_sigma, out_pi
 
+
 def generate(out_mu, out_sigma, out_pi, testSize, numComponents=24, outputDim=1, M=1):
-    out_mu = np.transpose(out_mu, [1, 0, 2])    #shape = [numComponents, batch, outputDim]
+    out_mu = np.transpose(out_mu, [1, 0, 2])  # shape = [numComponents, batch, outputDim]
     out_sigma = np.transpose(out_sigma, [1, 0, 2])  # shape = [numComponents, batch, outputDim]
     result = np.random.rand(testSize, M, outputDim)
     rn = np.random.randn(testSize, M)
@@ -116,9 +128,10 @@ def generate(out_mu, out_sigma, out_pi, testSize, numComponents=24, outputDim=1,
             for d in range(0, outputDim):
                 idx = np.random.choice(24, 1, p=out_pi[i])
                 mu = out_mu[idx, i, d]
-                std = out_sigma[idx, i,d]
+                std = out_sigma[idx, i, d]
                 result[i, j, d] = mu + rn[i, j] * std
     return result
+
 
 def test1dim():
     sampleSize = 250
@@ -170,8 +183,7 @@ def test2dim():
     ax.legend()
     plt.show()
 
-    
 ####### MAIN #########
 
-#test1dim()
-#test2dim()
+# test1dim()
+# test2dim()

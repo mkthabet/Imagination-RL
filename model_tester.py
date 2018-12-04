@@ -17,7 +17,9 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
 LATENT_DIM = 8
-sortedCnt = 0
+
+VAE_VER = '0008_1'
+MODEL_VER = '0001'
 
 class Brain:
     def __init__(self, stateCnt, actionCnt):
@@ -27,8 +29,8 @@ class Brain:
         self.controller, self.encoder = self._createModel()
 
     def _createModel(self):
-        controller = load_model('models/controller_3001.h5')
-        encoder = load_model('models/encoder_2001.h5')
+        controller = load_model('models/controller_' + MODEL_VER + ".h5")
+        encoder = load_model('models/encoder_' + VAE_VER + ".h5")
 
         return controller, encoder
 
@@ -53,7 +55,7 @@ class Agent:
         self.actionCnt = actionCnt
 
         self.brain = Brain(stateCnt, actionCnt)
-        
+
     def act(self, s):
         return numpy.argmax(self.brain.predictOne(s))
 
@@ -82,18 +84,23 @@ class Environment:
             R += r
 
             if done:
-                if r == -1:
+                if r < 1:
                     failed_cnt += 1
                 else:
                     done_cnt += 1
-                R_total += R
+                    R_total += R
                 break
 
         #print("Total reward:", R)
 
 #-------------------- MAIN ----------------------------
 
-def test_model(use_all=False, val=True):
+def test_model(vae_ver, model_ver, use_all=False, val=True):
+    global VAE_VER
+    global MODEL_VER
+    VAE_VER = vae_ver
+    MODEL_VER = model_ver
+
     num_items = 3
     env = Environment(num_items=num_items, use_all=use_all, val=val)
 
@@ -107,6 +114,8 @@ def test_model(use_all=False, val=True):
     MAX_EPISODES = 1000
     MAX_RUNS = 1
     total_done_cnt = 0
+    global R_total
+    R_total = 0
     while runs < MAX_RUNS:
         while episodes < MAX_EPISODES:
             env.run(agent)
@@ -118,7 +127,9 @@ def test_model(use_all=False, val=True):
         done_cnt = 0
         episodes = 0
     avg_done_cnt = total_done_cnt*100 / (MAX_RUNS*MAX_EPISODES)
-    return avg_done_cnt
+    avg_R = R_total / (total_done_cnt)
+    print('avg done: ', avg_done_cnt, '. avg R: ', avg_R)
+    return avg_done_cnt, avg_R
     # env.run(agent, False)
     #print('Average done count: ', avg_done_cnt)
     #print('Average R: ', R_total / (MAX_RUNS * MAX_EPISODES))

@@ -17,6 +17,9 @@ CHANNELS = 3
 LATENT_DIM = 8
 NUM_COMPONENTS = 48
 
+VAE_VER = '2001'
+MODEL_VER = '0002'
+
 def int2onehot(a, n):
     onehot = np.zeros(n)
     onehot[a] = 1
@@ -35,11 +38,11 @@ class PointingEnv:
         self.pu_hand, self.bl_hand, self.or_hand = getImages()
 
         self.env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM+4, out_dim=LATENT_DIM,
-                             model_path="models/env_model_2001.h5")
-        self.encoder = load_model("models/encoder_208.h5")
-        self.dqn_model = load_model('models/controller_2001.h5')
-        self.decoder = load_model("models/decoder_208.h5")
-        self.r_model = load_model("models/r_model_2001.h5")
+                             model_path="models/env_model_0002.h5")
+        self.encoder = load_model("models/encoder_2001.h5")
+        self.dqn_model = load_model('models/controller_0002.h5')
+        self.decoder = load_model("models/decoder_2001.h5")
+        self.r_model = load_model("models/r_model_0002.h5")
 
         self.s_bar = None
 
