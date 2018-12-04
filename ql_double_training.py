@@ -17,12 +17,12 @@ CHANNELS = 3
 LATENT_DIM = 8
 
 RE_MEMORY_CAPACITY = 10000
-IM_MEMORY_CAPACITY = 400
+IM_MEMORY_CAPACITY = 600
 ENV_BATCH_SIZE = 64
 GAMMA = 0.99
 MAX_EPSILON = 0.6  # 0.8
 MIN_EPSILON = 0.0001  # 0.0001
-LAMBDA = 0.1  # speed of decay+
+LAMBDA = 0.05  # speed of decay+
 MAX_EPISODES = 100
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
@@ -36,15 +36,15 @@ SIGMA_NOISE = 0.15
 actionCnt = 0
 
 ENV_LEARN_START = 40  # number of episodes before training env model starts`
-I_D = 7     #imaginary rollout depth (length of rollout)
-I_B = 30    #imaginary rollout breadth (number of rollouts)
+I_D = 8     #imaginary rollout depth (length of rollout)
+I_B = 50    #imaginary rollout breadth (number of rollouts)
 I_START = 50    # episode at which imaginary training starts
-MEM_BATCHSIZE = 64      #total batch size for replay
-IM_PERCENT = 0.5        #percentage of total batch size that is imaginary transitions
+MEM_BATCHSIZE = 256      #total batch size for replay
+IM_PERCENT = 0.3        #percentage of total batch size that is imaginary transitions
 IM_BATCHSIZE = int(round(MEM_BATCHSIZE*IM_PERCENT))
 RE_BATCHSIZE = MEM_BATCHSIZE - IM_BATCHSIZE
 
-USE_IMAGINARY = False
+USE_IMAGINARY = True
 
 
 def int2onehot(a, n):
@@ -339,7 +339,7 @@ global actionCnt
 actionCnt = env.env.getActSpaceSize()
 
 
-max_runs = 5
+max_runs = 10
 runs = 0
 done_counts = []
 try:
@@ -355,7 +355,7 @@ try:
         agent.brain.env_model.r_model.save("models/r_model_3001.h5")
         agent.brain.controller.save('models/controller_3001.h5')
         print("testing run ", runs+1)
-        done_counts.append(test_model(use_all=False, val=False))
+        done_counts.append(test_model(use_all=False, val=True))
         runs += 1
         #plt.plot(r_history)
         #plt.show()

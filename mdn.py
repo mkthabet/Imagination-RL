@@ -1,7 +1,7 @@
 import random, math, gym
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Conv2D, Input, Dense, Flatten, Dropout, Lambda, Concatenate
+from keras.layers import Conv2D, Input, Dense, Flatten, Dropout, Lambda, Concatenate, BatchNormalization
 from keras.optimizers import *
 from keras.models import Model, model_from_json, load_model
 from keras import backend as K
@@ -15,6 +15,7 @@ OUT_DIM = 1
 NUM_COMPONENTS = 24
 BATCH_SIZE = 2500
 BETA = 0.5
+EPSILON = 1e-8
 
 
 def get_mixture_coef(output, numComponents=24, outputDim=1):
@@ -34,9 +35,9 @@ def tf_normal(y, mu, sigma):
     result = y - mu  # shape = [numComponents, batch, outputDim]
     result = K.permute_dimensions(result, [2, 1, 0])
     sigma = K.permute_dimensions(sigma, [2, 1, 0])
-    result = result * (1 / (sigma + 1e-8))
+    result = result * (1 / (sigma + EPSILON))
     result = -K.square(result) / 2
-    result = K.exp(result) * (1 / (sigma + 1e-8)) * oneDivSqrtTwoPI
+    result = K.exp(result) * (1 / (sigma + EPSILON)) * oneDivSqrtTwoPI
     result = K.prod(result, axis=[0])
     return result
 
@@ -47,7 +48,7 @@ def get_lossfunc(out_pi, out_sigma, out_mu, y):
     result = tf_normal(y, out_mu, out_sigma)
     result = result * out_pi
     result = K.sum(result, axis=1, keepdims=True)
-    result = -K.log(result + 1e-8)
+    result = -K.log(result + EPSILON)
     #kl_loss = - 0.5 * K.sum(1 + K.log(out_sigma*out_sigma) - K.square(out_mu) - out_sigma*out_sigma, axis=-1)
     #kl_loss = K.sum(kl_loss, axis=0)
     #return K.mean(result+BETA*kl_loss)
@@ -74,6 +75,8 @@ class MDN:
 
     def _createModel(self):
         model_input = Input(shape=(self.in_dim,), name='mdn_in')
+        #model_out = BatchNormalization()(model_input)
+        #model_out = Dense(units=256, activation='relu', name='mdn_dense1')(model_out)
         model_out = Dense(units=256, activation='relu', name='mdn_dense1')(model_input)
         model_out = Dense(units=256, activation='relu', name='mdn_dense2')(model_out)
         model_out = Dense(units=256, activation='relu', name='mdn_dense3')(model_out)

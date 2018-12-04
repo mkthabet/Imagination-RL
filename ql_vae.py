@@ -1,28 +1,26 @@
-import random, math, gym
+import random, math
 import numpy as np
-from keras.models import Sequential
-from keras.layers import Conv2D, Input, Dense, Flatten, Dropout, Lambda, Concatenate
+from keras.layers import Input, Dense
 from keras.optimizers import *
 from keras.models import Model, model_from_json, load_model
-from keras import backend as K
-from keras import metrics
 from pointing_env import PointingEnv
 import matplotlib.pyplot as plt
 from mdn import MDN
+from sumtree import SumTree
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 16
+LATENT_DIM = 4
 
 ENV_LEARN_START = 0   #number of episodes before training env model starts`
 MEMORY_CAPACITY = 10000
 BATCH_SIZE = 64
 GAMMA = 0.99
-MAX_EPSILON = 1 #0.8
-MIN_EPSILON = 0.001 #0.0001
-LAMBDA = 0.001      # speed of decay+
-MAX_EPISODES = 1000
+MAX_EPSILON = 0.6 #0.8
+MIN_EPSILON = 0.0001 #0.0001
+LAMBDA = 0.01      # speed of decay+
+MAX_EPISODES = 300
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
@@ -50,7 +48,7 @@ class Brain:
         self. env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM+self.actionCnt, out_dim=LATENT_DIM)
 
     def _createModel(self):
-        encoder = load_model('models/encoder_202.h5')
+        encoder = load_model('models/encoder_105.h5')
 
         controller_input = Input(shape=(LATENT_DIM,), name='controller_input')
         controller_out = Dense(units=512, activation='relu')(controller_input)
@@ -81,10 +79,10 @@ class Brain:
 
         self.controller.fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
 
-    def train_env(self, x, y, epoch=4, verbose=1):
+    def train_env(self, x, y, epoch=1, verbose=1):
         self.env_model.train_model(x, y, batch_size=BATCH_SIZE, epoch=epoch, verbose=verbose)
 
-    def train_r(self, x, y, epoch=4, verbose=0):
+    def train_r(self, x, y, epoch=1, verbose=0):
         self.r_model.fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
 
     def predict(self, s, target=False):
@@ -105,21 +103,37 @@ class Brain:
         
 
 #-------------------- MEMORY --------------------------
-class Memory:   # stored as ( s, a, r, s_ , d)
-    samples = []
+class Memory:   # stored as ( s, a, r, s_ , d) in SumTree
+    e = 0.01
+    a = 0.6
 
     def __init__(self, capacity):
-        self.capacity = capacity
+        self.tree = SumTree(capacity)
 
-    def add(self, sample):
-        self.samples.append(sample)        
+    def _getPriority(self, error):
+        return (error + self.e) ** self.a
 
-        if len(self.samples) > self.capacity:
-            self.samples.pop(0)
+    def add(self, error, sample):
+        p = self._getPriority(error)
+        self.tree.add(p, sample)
 
     def sample(self, n):
-        n = min(n, len(self.samples))
-        return random.sample(self.samples, n)
+        batch = []
+        segment = self.tree.total() / n
+
+        for i in range(n):
+            a = segment * i
+            b = segment * (i + 1)
+
+            s = random.uniform(a, b)
+            (idx, p, data) = self.tree.get(s)
+            batch.append( (idx, data) )
+
+        return batch
+
+    def update(self, idx, error):
+        p = self._getPriority(error)
+        self.tree.update(idx, p)
 
 #-------------------- AGENT ---------------------------
 class Agent:
@@ -140,47 +154,72 @@ class Agent:
             return np.argmax(self.brain.predictOne(s))
 
     def observe(self, sample):  # in (s, a, r, s_, done) format
-        self.memory.add(sample)
+        x, y, errors = self._getTargets([(0, sample)])
+        self.memory.add(errors[0], sample)
 
-        if USE_TARGET and (self.steps % UPDATE_TARGET_FREQUENCY == 0):
-            self.brain.updateTargetModel()
+        #if self.steps % UPDATE_TARGET_FREQUENCY == 0:
+            #self.brain.updateTargetModel()
 
         # slowly decrease Epsilon based on our eperience
         self.steps += 1
         self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self.steps)
-        #self.epsilon = 0.1
 
-    def replay(self):    
+    def train_env(self):
         batch = self.memory.sample(BATCH_SIZE)
         batchLen = len(batch)
 
         no_state = np.zeros(LATENT_DIM)
 
-        states = np.array([ o[0] for o in batch ])
-        states_ = np.array([ (no_state if o[3] is None else o[3]) for o in batch ])
-        epsilon_noise = 0.01
-        #states = np.array([o[0] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM) for o in batch])
-        #states_ = np.array([(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
+        states = np.array([o[1][0] for o in batch])
+        states_ = np.array([(no_state if o[1][3] is None else o[1][3]) for o in batch])
+
+        x_env = np.zeros((len(batch), LATENT_DIM + actionCnt))
+        y_env_s = np.zeros((len(batch), LATENT_DIM))
+        y_env_r = np.zeros((len(batch), 1))
+        y_env_d = np.zeros((len(batch), 1))
+
+        for i in range(batchLen):
+            o = batch[i][1]
+            s = o[0];
+            a = o[1];
+            r = o[2];
+            s_ = o[3];
+            done = o[4]
+
+            x_env[i] = np.append(states[i], int2onehot(a, actionCnt))
+            y_env_s[i] = states_[i]
+            y_env_r[i] = r
+            y_env_d[i] = done
+
+        self.brain.train_env(x_env, y_env_s)
+        self.brain.train_r(x_env, [y_env_r, y_env_d])
+
+    def _getTargets(self, batch):
+        batchLen = len(batch)
+
+        no_state = np.zeros(LATENT_DIM)
+
+        states = np.array([o[1][0] for o in batch])
+        states_ = np.array([(no_state if o[1][3] is None else o[1][3]) for o in batch])
 
         p = agent.brain.predict(states)
         p_ = agent.brain.predict(states_, target=USE_TARGET)
 
         x = np.zeros((len(batch), LATENT_DIM))
         y = np.zeros((len(batch), self.actionCnt))
+        errors = np.zeros(len(batch))
 
-        x_env = np.zeros((len(batch), LATENT_DIM+actionCnt))
-        #print 'xenv' , x_env.shape
-        #y_env = np.zeros((len(batch), LATENT_DIM+2))
-        y_env_s = np.zeros((len(batch), LATENT_DIM))
-        y_env_r = np.zeros((len(batch), 1))
-        y_env_d = np.zeros((len(batch), 1))
-        
         for i in range(batchLen):
-            o = batch[i]
-            s = o[0]; a = o[1]; r = o[2]; s_ = o[3]; done = o[4]
-            
+            o = batch[i][1]
+            s = o[0]
+            a = o[1]
+            r = o[2]
+            s_ = o[3]
+            done = o[4]
+
             t = p[i]
-           # print (t)
+            oldVal = t[a]
+            # print (t)
             if s_ is None:
                 t[a] = r
             else:
@@ -188,29 +227,22 @@ class Agent:
 
             x[i] = s
             y[i] = t
-            #print 'sbar[i]', s_bar[i].shape
-            #if s_ != None:
-                #print(s_.shape)
-            #print('s_', s_, states_[i])
-            x_env[i] = np.append(states[i], int2onehot(a, actionCnt))
-            #y_env[i] = np.append(states_[i], [r, done])
-            y_env_s[i] = states_[i]# - states[i]
-            y_env_r[i] = r
-            y_env_d[i] = done
-            #print(x_env[i], y_env[i])
+            errors[i] = abs(oldVal - t[a])
 
+        return x, y, errors
+
+    def replay(self):    
+        batch = self.memory.sample(BATCH_SIZE)
+        x, y, errors = self._getTargets(batch)
+
+        #update errors
+        for i in range(len(batch)):
+            idx = batch[i][0]
+            self.memory.update(idx, errors[i])
         self.brain.train_controller(x, y)
+        for i in range(4):
+            self.train_env()
 
-        #print(x_env, y_env)
-
-        if episodes>ENV_LEARN_START:
-            self.brain.train_env(x_env, y_env_s)
-            self.brain.train_r(x_env, [y_env_r, y_env_d])
-            #res = self.brain.env_model.predict(x_env)
-            #means = res[0].flatten()
-            #logvars = res[1].flatten()
-            #coeffs = res[2].flatten()
-            #print('coeffs = ', coeffs, 'means = ', means, 'vars = ', np.exp(logvars))
 
 
 #-------------------- ENVIRONMENT ---------------------
@@ -270,9 +302,9 @@ try:
         episodes = episodes + 1
 finally:
     ss=0
-    agent.brain.controller.save("models/controller_501.h5")
-    agent.brain.env_model.model.save("models/env_model_501.h5")
-    agent.brain.r_model.save("models/r_model_501.h5")
+    agent.brain.controller.save("models/controller_601.h5")
+    agent.brain.env_model.model.save("models/env_model_601.h5")
+    agent.brain.r_model.save("models/r_model_601.h5")
     plt.plot(r_history)
     plt.show()
 #env.run(agent, False)

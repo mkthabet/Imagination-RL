@@ -49,23 +49,23 @@ class ArrowEnv:
         done = 0
 
         if action == 0:
-            self.arrow_state[0] = (self.arrow_state[0] + 1) % (self.num_items + 1)
+            self.arrow_state[0] = (self.arrow_state[0] + 1) % 4
         elif action == 1:
-            self.arrow_state[0] = (self.arrow_state[0] - 1) % (self.num_items + 1)
+            self.arrow_state[0] = (self.arrow_state[0] - 1) % 4
         elif action == 2:
-            self.arrow_state[1] = (self.arrow_state[1] + 1) % (self.num_items + 1)
+            self.arrow_state[1] = (self.arrow_state[1] + 1) % 4
         elif action == 3:
-            self.arrow_state[1] = (self.arrow_state[1] - 1) % (self.num_items + 1)
+            self.arrow_state[1] = (self.arrow_state[1] - 1) % 4
         elif action == 4:
-            self.arrow_state[2] = (self.arrow_state[2] + 1) % (self.num_items + 1)
+            self.arrow_state[2] = (self.arrow_state[2] + 1) % 4
         elif action == 5:
-            self.arrow_state[2] = (self.arrow_state[2] - 1) % (self.num_items + 1)
+            self.arrow_state[2] = (self.arrow_state[2] - 1) % 4
 
         # now compute reward
         if len(self.arrow_state) > len(set(self.arrow_state)):  # non-unique config
             reward = -10
             done = 1
-            print("non-unique config!")
+            print("Non-unique config!")
         elif self._isSolved():   # only arrow pointed to is up
             reward = 50
             done = 1
@@ -112,6 +112,7 @@ class ArrowEnv:
                 state_str += 'R'
         state_str += str(self.gest_state)
         return state_str
+
 
 testEnv = ArrowEnv(stochastic_gestures=True)
 s = testEnv.reset()

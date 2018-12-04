@@ -13,9 +13,9 @@ from mdn import MDN
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 CHANNELS = 3
-LATENT_DIM = 16
+LATENT_DIM = 8
 
-ENV_LEARN_START = 0  # number of episodes before training env model starts`
+ENV_LEARN_START = 50  # number of episodes before training env model starts`
 MEMORY_CAPACITY = 10000
 BATCH_SIZE = 64
 GAMMA = 0.99
@@ -26,10 +26,11 @@ MAX_EPISODES = 100
 USE_TARGET = False
 UPDATE_TARGET_FREQUENCY = 5
 NUM_COMPONENTS = 48
-
+R_ENV = 32 #number of env training batches for each episode
 epsilon_std = 1.0
 BETA = 0.0
 episodes = 0
+SIGMA_NOISE = 0.15
 
 
 def int2onehot(a, n):
@@ -54,7 +55,7 @@ class Brain:
         self.env_model = MDN(num_components=NUM_COMPONENTS, in_dim=LATENT_DIM + self.actionCnt, out_dim=LATENT_DIM)
 
     def _createModel(self):
-        encoder = load_model('models/encoder_202.h5')
+        encoder = load_model('models/encoder_208.h5')
 
         controller_input = Input(shape=(LATENT_DIM,), name='controller_input')
         controller_out = Dense(units=512, activation='relu')(controller_input)
@@ -164,10 +165,8 @@ class Agent:
         #states = np.array([o[0] for o in batch])
         #states_ = np.array([(no_state if o[3] is None else o[3]) for o in batch])
 
-        epsilon_noise = 0.12
-
-        states = np.array([(o[0] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
-        states_ = np.array([(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
+        states = np.array([(o[0] + np.random.normal(loc=0, scale=SIGMA_NOISE, size=LATENT_DIM)) for o in batch])
+        states_ = np.array([(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=SIGMA_NOISE, size=LATENT_DIM)) for o in batch])
 
         x_env = np.zeros((len(batch), LATENT_DIM + actionCnt))
         y_env_s = np.zeros((len(batch), LATENT_DIM))
@@ -200,10 +199,10 @@ class Agent:
 
         states = np.array([o[0] for o in batch])
         states_ = np.array([(no_state if o[3] is None else o[3]) for o in batch])
-        #states = np.array([(o[0] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o in batch])
+        #states = np.array([(o[0] + np.random.normal(loc=0, scale=SIGMA_NOISE, size=LATENT_DIM)) for o in batch])
         #states_ = np.array(
-         #   [(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=epsilon_noise, size=LATENT_DIM)) for o
-          #   in batch])
+        #    [(no_state if o[3] is None else o[3] + np.random.normal(loc=0, scale=SIGMA_NOISE, size=LATENT_DIM)) for o
+        #     in batch])
 
         p = agent.brain.predict(states)
         p_ = agent.brain.predict(states_, target=USE_TARGET)
@@ -232,8 +231,9 @@ class Agent:
             y[i] = t
 
         self.brain.train_controller(x, y)
-        for i in range(32):
-            self.train_env()
+        if episodes >= ENV_LEARN_START:
+            for i in range(R_ENV):
+                self.train_env()
 
 
 # -------------------- ENVIRONMENT ---------------------
@@ -268,7 +268,6 @@ class Environment:
                 sbar_ = None
 
             agent.observe((sbar, a, r, sbar_, done))
-
             agent.replay()
 
             s = s_
@@ -296,9 +295,9 @@ try:
         episodes = episodes + 1
 finally:
     ss = 0
-    agent.brain.controller.save("models/controller_605.h5")
-    agent.brain.env_model.model.save("models/env_model_605.h5")
-    agent.brain.r_model.save("models/r_model_605.h5")
+    agent.brain.controller.save("models/controller_703.h5")
+    agent.brain.env_model.model.save("models/env_model_703.h5")
+    agent.brain.r_model.save("models/r_model_703.h5")
     plt.plot(r_history)
     plt.show()
 # env.run(agent, False)
